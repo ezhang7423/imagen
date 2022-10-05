@@ -168,7 +168,7 @@ class ElucidatedImagen(nn.Module):
         # unet image sizes
 
         self.image_sizes = cast_tuple(image_sizes)
-        assert num_unets == len(image_sizes), f'you did not supply the correct number of u-nets ({len(self.unets)}) for resolutions {image_sizes}'
+        assert num_unets == len(self.image_sizes), f'you did not supply the correct number of u-nets ({len(self.unets)}) for resolutions {image_sizes}'
 
         self.sample_channels = cast_tuple(self.channels, num_unets)
 
@@ -386,6 +386,7 @@ class ElucidatedImagen(nn.Module):
         skip_steps = None,
         sigma_min = None,
         sigma_max = None,
+        return_all=False,
         **kwargs
     ):
         # get specific sampling hyperparameters for unet
@@ -412,6 +413,7 @@ class ElucidatedImagen(nn.Module):
         init_sigma = sigmas[0]
 
         images = init_sigma * torch.randn(shape, device = self.device)
+        all_imgs = [images]
 
         # initializing with an image
 
@@ -505,12 +507,15 @@ class ElucidatedImagen(nn.Module):
                     images = images + (sigma - sigma_next) * repaint_noise
 
                 x_start = model_output  # save model output for self conditioning
+                all_imgs.append(images)
 
         images = images.clamp(-1., 1.)
 
         if has_inpainting:
             images = images * ~inpaint_masks + inpaint_images * inpaint_masks
 
+        if return_all:
+            return all_imgs
         return self.unnormalize_img(images)
 
     @torch.no_grad()
@@ -539,7 +544,7 @@ class ElucidatedImagen(nn.Module):
         return_pil_images = False,
         use_tqdm = True,
         device = None,
-    ):
+    ):  
         device = default(device, self.device)
         self.reset_unets_all_one_device(device = device)
 
@@ -655,27 +660,25 @@ class ElucidatedImagen(nn.Module):
                     lowres_cond_img = lowres_cond_img,
                     lowres_noise_times = lowres_noise_times,
                     dynamic_threshold = dynamic_threshold,
-                    use_tqdm = use_tqdm
+                    use_tqdm = use_tqdm,
+                    return_all=return_all_unet_outputs
                 )
 
                 outputs.append(img)
 
             if exists(stop_at_unet_number) and stop_at_unet_number == unet_number:
                 break
-
+        
         output_index = -1 if not return_all_unet_outputs else slice(None) # either return last unet output or all unet outputs
 
-        if not return_pil_images:
-            return outputs[output_index]
+        return outputs[0]
 
-        if not return_all_unet_outputs:
-            outputs = outputs[-1:]
 
-        assert not self.is_video, 'automatically converting video tensor to video file for saving is not built yet'
+        # assert not self.is_video, 'automatically converting video tensor to video file for saving is not built yet'
 
-        pil_images = list(map(lambda img: list(map(T.ToPILImage(), img.unbind(dim = 0))), outputs))
+        # pil_images = list(map(lambda img: list(map(T.ToPILImage(), img.unbind(dim = 0))), outputs))
 
-        return pil_images[output_index] # now you have a bunch of pillow images you can just .save(/where/ever/you/want.png)
+        # return pil_images[output_index] # now you have a bunch of pillow images you can just .save(/where/ever/you/want.png)
 
     # training
 

@@ -2174,6 +2174,7 @@ class Imagen(nn.Module):
         device = None,
         use_tqdm = True
     ):
+
         device = default(device, self.device)
         self.reset_unets_all_one_device(device = device)
 

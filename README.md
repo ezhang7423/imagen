@@ -357,11 +357,11 @@ trainer.add_train_dataset(dataset, batch_size = 16)
 
 for i in range(200000):
     loss = trainer.train_step(unet_number = 1, max_batch_size = 4)
-    print(f'loss: {loss}')
+    # print(f'loss: {loss}')
 
     if not (i % 50):
         valid_loss = trainer.valid_step(unet_number = 1, max_batch_size = 4)
-        print(f'valid loss: {valid_loss}')
+        # print(f'valid loss: {valid_loss}')
 
     if not (i % 100) and trainer.is_main: # is_main makes sure this can run in distributed
         images = trainer.sample(batch_size = 1, return_pil_images = True) # returns List[Image]

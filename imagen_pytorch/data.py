@@ -1,3 +1,4 @@
+import glob
 from pathlib import Path
 from functools import partial
 
@@ -18,10 +19,13 @@ def cycle(dl):
         for data in dl:
             yield data
 
-def convert_image_to(img_type, image):
-    if image.mode != img_type:
-        return image.convert(img_type)
-    return image
+def normalize(image):
+
+    image = torch.from_numpy(image)
+    image[image != 0] = 1
+    image[image == 0] = -1
+    
+    return image.float()[None]
 
 # dataset and dataloader
 
@@ -29,23 +33,19 @@ class Dataset(Dataset):
     def __init__(
         self,
         folder,
-        image_size,
-        exts = ['jpg', 'jpeg', 'png', 'tiff'],
-        convert_image_to_type = None
     ):
         super().__init__()
         self.folder = folder
-        self.image_size = image_size
-        self.paths = [p for ext in exts for p in Path(f'{folder}').glob(f'**/*.{ext}')]
+        self.paths = glob.glob(f'{folder}/*.pt')
 
-        convert_fn = partial(convert_image_to, convert_image_to_type) if exists(convert_image_to_type) else nn.Identity()
 
         self.transform = T.Compose([
-            T.Lambda(convert_fn),
-            T.Resize(image_size),
+            T.Lambda(normalize),
+            # T.Resize(image_size),
             T.RandomHorizontalFlip(),
-            T.CenterCrop(image_size),
-            T.ToTensor()
+            T.RandomVerticalFlip(),
+            T.Pad(1),
+            # T.CenterCrop(image_size),
         ])
 
     def __len__(self):
@@ -53,8 +53,10 @@ class Dataset(Dataset):
 
     def __getitem__(self, index):
         path = self.paths[index]
-        img = Image.open(path)
-        return self.transform(img)
+        # .split('<Architect> ')
+        ret = torch.load(path)
+        
+        return self.transform(ret['target_grid']), ret['dialog'].split('<Architect> ')[-1]
 
 def get_images_dataloader(
     folder,

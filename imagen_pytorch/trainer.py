@@ -243,7 +243,7 @@ class ImagenTrainer(nn.Module):
         fp16 = False,
         precision = None,
         split_batches = True,
-        dl_tuple_output_keywords_names = ('images', 'text_embeds', 'text_masks', 'cond_images'),
+        dl_tuple_output_keywords_names = ('images', 'texts', 'text_masks', 'cond_images'),
         verbose = True,
         split_valid_fraction = 0.025,
         split_valid_from_train = False,
@@ -587,6 +587,7 @@ class ImagenTrainer(nn.Module):
 
     def train_step(self, unet_number = None, **kwargs):
         self.create_train_iter()
+        assert len(self.train_dl) != 0
         loss = self.step_with_dl_iter(self.train_dl_iter, unet_number = unet_number, **kwargs)
         self.update(unet_number = unet_number)
         return loss
@@ -633,8 +634,9 @@ class ImagenTrainer(nn.Module):
         self.load(last_checkpoint)
 
     def save_to_checkpoint_folder(self):
+        # print('scf')
         self.accelerator.wait_for_everyone()
-
+        # print('scf2')
         if not self.can_checkpoint:
             return
 
@@ -661,7 +663,9 @@ class ImagenTrainer(nn.Module):
         without_optim_and_sched = False,
         **kwargs
     ):
-        self.accelerator.wait_for_everyone()
+        # print('s1')
+        # self.accelerator.wait_for_everyone()
+        # print('s2')
 
         if not self.can_checkpoint:
             return
