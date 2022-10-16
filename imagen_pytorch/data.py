@@ -19,13 +19,16 @@ def cycle(dl):
         for data in dl:
             yield data
 
-def normalize(image):
+def normalize(threshold):
 
-    image = torch.from_numpy(image)
-    image[image != 0] = 1
-    image[image == 0] = -1
-    
-    return image.float()[None]
+    def fn(image):
+        image = torch.from_numpy(image)
+        image[image != 0] = threshold
+        image[image == 0] = -threshold
+        
+        return image.float()[None]
+
+    return fn
 
 # dataset and dataloader
 
@@ -33,6 +36,7 @@ class Dataset(Dataset):
     def __init__(
         self,
         folder,
+        threshold=1,
     ):
         super().__init__()
         self.folder = folder
@@ -40,7 +44,7 @@ class Dataset(Dataset):
 
 
         self.transform = T.Compose([
-            T.Lambda(normalize),
+            T.Lambda(normalize(threshold)),
             # T.Resize(image_size),
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),

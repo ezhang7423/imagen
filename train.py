@@ -4,6 +4,10 @@ from imagen_pytorch.data import Dataset
 import torchvision
 import os 
 from torchtils.utils import datestr
+import wandb
+
+THRESHOLD = 0.01
+wandb.init(project='imagen-training', entity='lang-diffusion', name=f'{THRESHOLD=}')
 
 d = datestr()
 
@@ -51,6 +55,7 @@ def plot_grid(voxel, text=None):
     return fig
 """"""
 
+
 unet1 = Unet3D(dim = 128, dim_mults = (1, 2, 4)).cuda()
 
 
@@ -81,19 +86,21 @@ imagen = ElucidatedImagen(
 # feed images into imagen, training each unet in the cascade
 # for this example, only training unet 1
 
-trainer = ImagenTrainer(imagen, checkpoint_path='./diffuser', checkpoint_every=1_000, split_valid_from_train=True).cuda()
+trainer = ImagenTrainer(imagen, checkpoint_path='./diffuser', checkpoint_every=10_000, split_valid_from_train=True).cuda()
 
-dataset = Dataset('/data2/eddie/iglu/both')
+dataset = Dataset('/data2/eddie/iglu/both', threshold=THRESHOLD)
 
 trainer.add_train_dataset(dataset, batch_size = 18)
 # working training loop
 
 for i in range(200_000):
     loss = trainer.train_step(unet_number = 1)
-    print(f'loss: {loss}')
+    # print(f'loss: {loss}')
+    wandb.log({'train/loss': loss})
 
     if not (i % 500):
         valid_loss = trainer.valid_step(unet_number = 1)
+        wandb.log({'valid/loss': valid_loss})
         print(f'valid loss: {valid_loss}')
 
     if not (i % 1_000) and trainer.is_main: # is_main makes sure this can run in distributed
