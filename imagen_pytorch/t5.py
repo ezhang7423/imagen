@@ -3,6 +3,9 @@ import transformers
 from typing import List
 from transformers import T5Tokenizer, T5EncoderModel, T5Config
 from einops import rearrange
+import os
+
+script_dir = os.path.dirname(os.path.realpath(__file__))
 
 transformers.logging.set_verbosity_error()
 
@@ -47,7 +50,12 @@ def get_model_and_tokenizer(name):
 def get_encoded_dim(name):
     if name not in T5_CONFIGS:
         # avoids loading the model if we only want to get the dim
-        config = T5Config.from_pretrained(name)
+        if name == DEFAULT_T5_NAME:
+            print(os.path.join(script_dir, 'default_config'))
+            config = T5Config.from_pretrained(os.path.join(script_dir, 'default_config'))
+        else:
+            config = T5Config.from_pretrained(name)
+            
         T5_CONFIGS[name] = dict(config=config)
     elif "config" in T5_CONFIGS[name]:
         config = T5_CONFIGS[name]["config"]

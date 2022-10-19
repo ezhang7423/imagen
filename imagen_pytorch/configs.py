@@ -44,7 +44,7 @@ class NullUnetConfig(BaseModel):
 class UnetConfig(AllowExtraBaseModel):
     dim:                int
     dim_mults:          ListOrTuple(int)
-    text_embed_dim:     int = get_encoded_dim(DEFAULT_T5_NAME)
+    text_embed_dim:     int = 768
     cond_dim:           int = None
     channels:           int = 3
     attn_dim_head:      int = 32
@@ -56,7 +56,7 @@ class UnetConfig(AllowExtraBaseModel):
 class Unet3DConfig(AllowExtraBaseModel):
     dim:                int
     dim_mults:          ListOrTuple(int)
-    text_embed_dim:     int = get_encoded_dim(DEFAULT_T5_NAME)
+    text_embed_dim:     int = 768
     cond_dim:           int = None
     channels:           int = 3
     attn_dim_head:      int = 32
