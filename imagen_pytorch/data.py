@@ -1,7 +1,7 @@
 import glob
 from pathlib import Path
 from functools import partial
-
+import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -55,12 +55,33 @@ class Dataset(Dataset):
     def __len__(self):
         return len(self.paths)
 
+    def preprocess(self, sample):
+        colors = {
+             1: 'blue',  # blue
+             2: 'green',  # green
+             3: 'red',  # red
+             4: 'orange',  # orange
+             5: 'purple',  # purple
+             6: 'yellow',  # yellow
+        }
+
+        if sample['grid'].sum() != 0:
+            ctx = 'There are blocks on'
+            for z, y, x in zip(*sample['grid'].nonzero()):
+                ctx += f' {z},{y},{x},{colors[sample["grid"][z,y,x]]}'
+            
+            ctx += '. Implement: '
+        else:
+            ctx = 'There are no blocks. Implement: '        
+
+        return ctx + sample['dialog'].split('<Architect> ')[-1] #! add context
+        
     def __getitem__(self, index):
         path = self.paths[index]
         # .split('<Architect> ')
         ret = torch.load(path)
         
-        return self.transform(ret['target_grid']), ret['dialog'].split('<Architect> ')[-1]
+        return self.transform(np.clip(ret['target_grid'] - ret['grid'], 0, 1)), self.preprocess(ret)
 
 def get_images_dataloader(
     folder,

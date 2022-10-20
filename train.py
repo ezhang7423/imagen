@@ -1,3 +1,5 @@
+from collections import defaultdict
+from gridworld.tasks.task import Tasks
 import torch
 from imagen_pytorch import Unet3D, ElucidatedImagen, ImagenTrainer
 from imagen_pytorch.data import Dataset
@@ -6,14 +8,26 @@ import os
 from torchtils.utils import datestr
 import wandb
 
-THRESHOLD = 0.01
-wandb.init(project='imagen-training', entity='lang-diffusion', name=f'{THRESHOLD=}')
+import argparse
+
+from imagen_nlp_eval import compute_metric, write_metrics_to_disk
+parser = argparse.ArgumentParser()
+parser.add_argument("-c", "--chk", type=str, default=None)
+args = parser.parse_args()
+
+
+THRESHOLD = 1
+wandb.init(project='imagen-training', entity='lang-diffusion', name=f'finetuned_{THRESHOLD=}')
 
 d = datestr()
+print('running in ', d)
 
-
-os.makedirs(f'data/{d}',exist_ok=True)
-os.chdir(f'data/{d}')
+args.chk = '2022-10-18-18-00-34'
+if args.chk is None:
+    os.makedirs(f'data/{d}',exist_ok=True)
+    os.chdir(f'data/{d}')
+else:
+    os.chdir(f'data/{args.chk}')
 
 """"""
 import numpy as np
@@ -65,7 +79,7 @@ imagen = ElucidatedImagen(
     unets = unet1,
     image_sizes = 12,
     random_crop_sizes = None,
-    num_sample_steps = 50,
+    num_sample_steps = 25,
     cond_drop_prob = 0.1,
     channels=1,
     sigma_min = 0.002,                          # min noise level
@@ -88,10 +102,12 @@ imagen = ElucidatedImagen(
 
 trainer = ImagenTrainer(imagen, checkpoint_path='./diffuser', checkpoint_every=10_000, split_valid_from_train=True).cuda()
 
-dataset = Dataset('/data2/eddie/iglu/both', threshold=THRESHOLD)
+dataset = Dataset('/data2/eddie/iglu/both_0.3', threshold=THRESHOLD)
 
-trainer.add_train_dataset(dataset, batch_size = 18)
+trainer.add_train_dataset(dataset, batch_size = 32)
 # working training loop
+
+validation = torch.load('/home/eddie/iglu/iglu-2022-rl-task-starter-ki/validation-prediction.pt')
 
 for i in range(200_000):
     loss = trainer.train_step(unet_number = 1)
@@ -103,12 +119,34 @@ for i in range(200_000):
         wandb.log({'valid/loss': valid_loss})
         print(f'valid loss: {valid_loss}')
 
-    if not (i % 1_000) and trainer.is_main: # is_main makes sure this can run in distributed
-        images = trainer.sample(batch_size = 1, return_pil_images = True, texts=['Facing north, build three stacks of two orange blocks, then destroy the bottom orange block on all three stacks'], video_frames=9) # returns List[Image]
-        images = torchvision.transforms.functional.center_crop(images, 11)
-        images[images > 0] = 1
-        images[images < 0] = 0        
-        plot_grid(images[0, 0].cpu().numpy()).savefig(f'sample_{i}.png')
+    if not (i % 5_000) and trainer.is_main: # is_main makes sure this can run in distributed
+        images = trainer.sample(batch_size = 1, return_pil_images = True, texts=validation['ctx_instructions'][:100], video_frames=9) # returns List[Image]
+        images = torchvision.transforms.functional.center_crop(images, 11).squeeze(dim=1)
+        images[images > 0.1] = 1
+        images[images < 0.1] = 0        
+        images = images.cpu().numpy()
+
+        results = []
+        agg = defaultdict(float)
+        for j in range(100):
+            pred = images[j]
+
+            delta =  validation['tasks'][j].target_grid - Tasks.to_dense(validation['tasks'][j].starting_grid)
+            color = delta.max()
+
+            # res = compute_metric(pred * color, validation['tasks'][j])
+            res = compute_metric(pred * color + Tasks.to_dense(validation['tasks'][j].starting_grid), validation['tasks'][j])
+            results.append(res)
+            for k in res:
+                agg[k] += res[k]
+                
+        print('Validation results x100: ', agg)        
+        write_metrics_to_disk(f'validation_{i}.json', results)
+        plot_grid(images[0]).savefig(f'sample_{i}.0.png')
+        plot_grid(images[5]).savefig(f'sample_{i}.1.png')
+        plot_grid(images[10]).savefig(f'sample_{i}.2.png')
+        plot_grid(images[15]).savefig(f'sample_{i}.3.png')
+        plot_grid(images[20]).savefig(f'sample_{i}.4.png')
 
 
 
