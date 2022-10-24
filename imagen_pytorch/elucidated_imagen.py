@@ -2,6 +2,7 @@ from math import sqrt
 from random import random
 from functools import partial
 from contextlib import contextmanager, nullcontext
+import time
 from typing import List, Union
 from collections import namedtuple
 from tqdm.auto import tqdm
@@ -17,6 +18,7 @@ import kornia.augmentation as K
 
 from einops import rearrange, repeat, reduce
 from einops_exts import rearrange_many
+from agents.mhb_baseline.nlp_model.agent import DefArgs, load_model
 
 from imagen_pytorch.imagen_pytorch import (
     GaussianDiffusionContinuousTimes,
@@ -471,6 +473,8 @@ class ElucidatedImagen(nn.Module):
                 if has_inpainting:
                     images_hat = images_hat * ~inpaint_masks + (inpaint_images + added_noise) * inpaint_masks
 
+                # s = time.time()
+
                 model_output = self.preconditioned_network_forward(
                     unet.forward_with_cond_scale,
                     images_hat,
@@ -478,6 +482,7 @@ class ElucidatedImagen(nn.Module):
                     self_cond = self_cond,
                     **unet_kwargs
                 )
+                # print(time.time() - s)
 
                 denoised_over_sigma = (images_hat - model_output) / sigma_hat
 
@@ -663,7 +668,6 @@ class ElucidatedImagen(nn.Module):
                     use_tqdm = use_tqdm,
                     return_all=return_all_unet_outputs
                 )
-
                 outputs.append(img)
 
             if exists(stop_at_unet_number) and stop_at_unet_number == unet_number:

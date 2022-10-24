@@ -773,12 +773,12 @@ class ImagenTrainer(nn.Module):
             if exists(warmup_scheduler) and warmup_scheduler_key in loaded_obj:
                 warmup_scheduler.load_state_dict(loaded_obj[warmup_scheduler_key])
 
-            if exists(optimizer):
-                try:
-                    optimizer.load_state_dict(loaded_obj[optimizer_key])
-                    scaler.load_state_dict(loaded_obj[scaler_key])
-                except:
-                    self.print('could not load optimizer and scaler, possibly because you have turned on mixed precision training since the last run. resuming with new optimizer and scalers')
+            # if exists(optimizer):
+            #     try:
+            #         optimizer.load_state_dict(loaded_obj[optimizer_key])
+            #         scaler.load_state_dict(loaded_obj[scaler_key])
+            #     except:
+            #         self.print('could not load optimizer and scaler, possibly because you have turned on mixed precision training since the last run. resuming with new optimizer and scalers')
 
         if self.use_ema:
             assert 'ema' in loaded_obj
